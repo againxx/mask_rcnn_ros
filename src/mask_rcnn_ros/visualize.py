@@ -226,7 +226,9 @@ def display_instances_plt(image, boxes, masks, class_ids, class_names,
             ax.add_patch(p)
     ax.imshow(masked_image.astype(np.uint8))
     fig.canvas.draw()
-    width, height = fig.canvas.get_width_height()
+    width, height = fig.get_size_inches()
+    width *= fig.dpi
+    height *= fig.dpi
     img = np.fromstring(fig.canvas.tostring_rgb(), dtype='uint8').reshape(int(height), int(width), 3)
     plt.close(fig)
     return img
