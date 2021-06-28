@@ -19,7 +19,7 @@ from matplotlib.patches import Polygon
 import cv2
 import IPython.display
 
-import utils
+from mask_rcnn_ros import utils
 
 
 ############################################################
