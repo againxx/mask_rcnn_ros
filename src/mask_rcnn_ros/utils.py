@@ -18,23 +18,7 @@ import skimage.io
 from six.moves.urllib import request
 import shutil
 import contextlib
-try:
-    from scipy.misc import imresize
-except ImportError:
-    from PIL import Image
-    def imresize(arr, size, interp='bilinear', mode=None):
-        image = Image.fromarray(arr, mode=mode)
-        size_type = type(size)
-        if np.issubdtype(size_type, np.signedinteger):
-            percent = size / 100.0
-            size = tuple((np.array(image.size) * percent).astype(int))
-        elif np.issubdtype(size_type, np.floating):
-            size = tuple((np.array(image.size) * size).astype(int))
-        else:
-            size = (size[1], size[0])
-        func = {'nearest': 0, 'lanczos': 1, 'bilinear': 2, 'bicubic': 3, 'cubic': 3}
-        image_new = image.resize(size, resample=func[interp])
-        return np.array(image_new)
+from PIL import Image
 
 # URL from which to download the latest COCO trained weights
 COCO_MODEL_URL = "https://github.com/matterport/Mask_RCNN/releases/download/v2.0/mask_rcnn_coco.h5"
@@ -478,7 +462,7 @@ def minimize_mask(bbox, mask, mini_shape):
         if m.size == 0:
             raise Exception("Invalid bounding box with area of zero")
         m = imresize(m.astype(float), mini_shape, interp='bilinear')
-        mini_mask[:, :, i] = np.where(m >= 128, 1, 0)
+        mini_mask[:, :, i] = np.where(m >= 0.5, 1, 0)
     return mini_mask
 
 
@@ -495,7 +479,7 @@ def expand_mask(bbox, mini_mask, image_shape):
         h = y2 - y1
         w = x2 - x1
         m = imresize(m.astype(float), (h, w), interp='bilinear')
-        mask[y1:y2, x1:x2, i] = np.where(m >= 128, 1, 0)
+        mask[y1:y2, x1:x2, i] = np.where(m >= 0.5, 1, 0)
     return mask
 
 
@@ -515,7 +499,7 @@ def unmold_mask(mask, bbox, image_shape):
     threshold = 0.5
     y1, x1, y2, x2 = bbox
     mask = imresize(
-        mask, (y2 - y1, x2 - x1), interp='bilinear').astype(np.float32) / 255.0
+        mask, (y2 - y1, x2 - x1), interp='bilinear').astype(np.float32)
     mask = np.where(mask >= threshold, 1, 0).astype(np.uint8)
 
     # Put the mask in the right location.
@@ -599,6 +583,22 @@ def trim_zeros(x):
     """
     assert len(x.shape) == 2
     return x[~np.all(x == 0, axis=1)]
+
+
+def imresize(arr, size, interp='bilinear', mode=None):
+    image = Image.fromarray(arr, mode=mode)
+    size_type = type(size)
+    if np.issubdtype(size_type, np.signedinteger):
+        percent = size / 100.0
+        size = tuple((np.array(image.size) * percent).astype(int))
+    elif np.issubdtype(size_type, np.floating):
+        size = tuple((np.array(image.size) * size).astype(int))
+    else:
+        size = (size[1], size[0])
+    func = {'nearest': Image.NEAREST, 'lanczos': Image.LANCZOS, 'bilinear': Image.BILINEAR,
+            'bicubic': Image.BICUBIC, 'cubic': Image.CUBIC}
+    image_new = image.resize(size, resample=func[interp])
+    return np.array(image_new)
 
 
 def compute_ap(gt_boxes, gt_class_ids, gt_masks,
